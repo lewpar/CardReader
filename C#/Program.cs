@@ -1,4 +1,7 @@
 ﻿using System.IO.Ports;
+using System.Management;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using System.Text;
 
 namespace SerialTest
@@ -27,6 +30,48 @@ namespace SerialTest
 
         static async Task Main(string[] args)
         {
+            var port = new SerialPort()
+            {
+                BaudRate = 9600,
+                Parity = Parity.None,
+                StopBits = StopBits.One,
+                DataBits = 8,
+                Handshake = Handshake.None,
+                RtsEnable = true,
+            };
+
+            string? portName = null;
+
+            if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                portName = AutomaticPort();
+            }
+
+            if(portName is null)
+            {
+                portName = ManualPort();
+
+                if(portName is null)
+                {
+                    Console.WriteLine("Failed to find a port name.");
+                    return;
+                }
+            }
+
+            Console.WriteLine($"Found '{portName}' port name.");
+            port.PortName = portName;
+
+            port.Open();
+
+            Console.WriteLine("Waiting for NFC Tag..");
+
+            port.DataReceived += Port_DataReceived;
+
+            await Task.Delay(-1);
+        }
+
+        private static string ManualPort()
+        {
             var ports = SerialPort.GetPortNames();
             int? selectedPort = null;
 
@@ -52,24 +97,53 @@ namespace SerialTest
 
             Console.WriteLine($"Port '{ports[selectedPort.Value]}' selected.");
 
-            var port = new SerialPort()
+            return ports[selectedPort.Value];
+        }
+
+        [SupportedOSPlatform("Windows")]
+        private static string? AutomaticPort()
+        {
+            var ports = SerialPort.GetPortNames();
+
+            ManagementScope scope = new ManagementScope();
+            SelectQuery query = new SelectQuery("SELECT * FROM Win32_SerialPort");
+            ManagementObjectSearcher searcher = new ManagementObjectSearcher(scope, query);
+
+            try
             {
-                PortName = ports[selectedPort.Value],
-                BaudRate = 9600,
-                Parity = Parity.None,
-                StopBits = StopBits.One,
-                DataBits = 8,
-                Handshake = Handshake.None,
-                RtsEnable = true,
-            };
+                foreach(var item in searcher.Get())
+                {
 
-            port.Open();
+                    var descObject = item["Description"];
+                    var devIdObject = item["DeviceID"];
 
-            Console.WriteLine("Waiting for NFC Tag..");
+                    if(descObject is null ||
+                        devIdObject is null)
+                    {
+                        continue;
+                    }
 
-            port.DataReceived += Port_DataReceived;
+                    var description = descObject.ToString();
+                    var deviceID = devIdObject.ToString();
 
-            await Task.Delay(-1);
+                    if(description is null ||
+                        deviceID is null)
+                    {
+                        continue;
+                    }
+
+                    if(description.Contains("Arduino Uno"))
+                    {
+                        return deviceID;
+                    }
+                }
+            }
+            catch(Exception ex)
+            {
+                Console.WriteLine($"Failed to automatically find port with error: {ex.Message}");
+            }
+
+            return null;
         }
 
         private static void Port_DataReceived(object sender, SerialDataReceivedEventArgs e)
