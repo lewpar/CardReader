@@ -1,4 +1,6 @@
-﻿using System.IO.Ports;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.IO.Ports;
+using System.Text;
 
 namespace SerialTest
 {
@@ -8,8 +10,16 @@ namespace SerialTest
         RFID_LOCK_STATE = 0x02
     }
 
+    record CardInfo(string name, byte[] uid);
+
     internal class Program
     {
+        private static Dictionary<string, CardInfo> cards = new()
+        {
+            { "A3 47 64 B7", new CardInfo("Key Tag", new byte[] { 0xA3, 0x47, 0x64, 0xB7 }) },
+            { "AC 03 0A E1", new CardInfo("Card Tag", new byte[] { 0xAC, 0x03, 0x0A, 0xE1 }) }
+        };
+
         private static Dictionary<byte, Func<SerialPort, Task>> opCodes = new()
         {
             { (byte)ArduinoOpCodes.RFID_READ, HandleRfidReadOpCodeAsync },
@@ -112,13 +122,30 @@ namespace SerialTest
                 key[i] = (byte)port.ReadByte();
             }
 
-            Console.Write("Got NFC Tag UID: ");
-            foreach (byte b in key)
+            var sb = new StringBuilder();
+            for (int i = 0; i < key.Length; i++)
             {
-                Console.Write($"{b:X} ");
+                sb.Append(key[i].ToString("X2"));
+
+                if (i != key.Length - 1)
+                {
+                    sb.Append(' ');
+                }
             }
 
-            Console.WriteLine();
+            string sKey = sb.ToString();
+
+            Console.WriteLine($"Got NFC Tag UID: {sKey}");
+
+            if (cards.ContainsKey(sKey))
+            {
+                var cardInfo = cards[sKey];
+                Console.WriteLine($"Found card information matching UID with name: {cardInfo.name}");
+            }
+            else
+            {
+                Console.WriteLine("No card information matches that UID.");
+            }
 
             // Wait 2 seconds before unlocking card reader.
             await Task.Delay(2000);
