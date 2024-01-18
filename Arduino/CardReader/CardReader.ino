@@ -11,6 +11,8 @@ enum OpCodes : uint8_t
 };
 
 bool locked = false;
+unsigned long lockTimeMs = 0; // How many milliseconds have passed since the reader has been locked.
+unsigned long timeoutMs = 10000; // Number of milliseconds to unlock the reader to prevent indefinite lock.
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
@@ -59,6 +61,12 @@ void setLock(bool state)
 {
   locked = state;
 
+  if(state)
+  {
+    // Set the time when the reader is locked.
+    lockTimeMs = millis();
+  }
+
   // Send lock state through Serial.
   Serial.write(OPCODE_RFID_LOCK_STATE); // OpCode
   Serial.write(locked); // Lock State
@@ -66,6 +74,24 @@ void setLock(bool state)
 
 void checkForUnlock()
 {
+  // Check if the reader has timed out.
+  if((millis() - lockTimeMs) > timeoutMs)
+  {
+    setLock(false);
+
+    // Clear the serial buffer.
+    if(Serial.available())
+    {
+      int b = 0;
+      while(b != -1)
+      {
+        b = Serial.read();
+      }
+    }
+
+    return;
+  }
+
   if(!Serial.available())
   {
     return;
