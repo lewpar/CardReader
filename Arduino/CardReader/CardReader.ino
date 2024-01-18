@@ -16,13 +16,15 @@ unsigned long timeoutMs = 10000; // Number of milliseconds after lockTimeMs to u
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
-void setup() {
-	Serial.begin(9600);
-	SPI.begin();
-	mfrc522.PCD_Init();
+void setup() 
+{
+  Serial.begin(9600);
+  SPI.begin();
+  mfrc522.PCD_Init();
 }
 
-void loop() {
+void loop() 
+{
   // If the card reader is locked waiting for response.
   if(isLocked())
   {
@@ -31,15 +33,17 @@ void loop() {
     return;
   }
 
-	// Check if there is a card present to read.
-	if (!mfrc522.PICC_IsNewCardPresent()) {
-		return;
-	}
+  // Check if there is a card present to read.
+  if (!mfrc522.PICC_IsNewCardPresent()) 
+  {
+    return;
+  }
 
-	// Check to see if the card if readable.
-	if (!mfrc522.PICC_ReadCardSerial()) {
-		return;
-	}
+  // Check to see if the card if readable.
+  if (!mfrc522.PICC_ReadCardSerial()) 
+  {
+    return;
+  }
 
   Serial.write(OPCODE_RFID_READ); // OpCode
   Serial.write(mfrc522.uid.size); // UidLen
