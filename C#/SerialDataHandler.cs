@@ -1,4 +1,5 @@
-﻿using System.IO.Ports;
+﻿using System.Dynamic;
+using System.IO.Ports;
 using System.Text;
 
 namespace CardReader
@@ -6,7 +7,8 @@ namespace CardReader
     public class SerialDataHandler
     {
         public event EventHandler<SerialDataOpCodeReceivedEventArgs>? SerialDataOpCodeReceived;
-        public event EventHandler<SerialDataCardInfoReceivedEventArgs>? SerialDataCardInfoReceived;
+        public event EventHandler<SerialDataCardInfoReceivedEventArgs>? SerialDataValidCardInfoReceived;
+        public event EventHandler<SerialDataCardInfoReceivedEventArgs>? SerialDataInvalidCardInfoReceived;
 
         private Dictionary<byte, Func<SerialPort, Task>> opCodes;
         private Dictionary<string, CardInfo> cards;
@@ -23,11 +25,12 @@ namespace CardReader
                 { (byte)SerialDataOpCode.RFID_LOCK_STATE, HandleRfidLockStateOpCodeAsync }
             };
 
-            cards = new()
-            {
-                { "A3 47 64 B7", new CardInfo("Key Tag", new byte[] { 0xA3, 0x47, 0x64, 0xB7 }) },
-                { "AC 03 0A E1", new CardInfo("Card Tag", new byte[] { 0xAC, 0x03, 0x0A, 0xE1 }) }
-            };
+            cards = new();
+        }
+
+        public void RegisterRFIDTag(RFIDTag tag, byte[] uid)
+        {
+            cards.Add(SerialPortExtensions.BytesToString(uid), new CardInfo(tag.ToString(), uid));
         }
 
         public void OpenPort()
@@ -91,24 +94,17 @@ namespace CardReader
                 key[i] = (byte)port.ReadByte();
             }
 
-            var sb = new StringBuilder();
-            for (int i = 0; i < key.Length; i++)
-            {
-                sb.Append(key[i].ToString("X2"));
-
-                if (i != key.Length - 1)
-                {
-                    sb.Append(' ');
-                }
-            }
-
-            string sKey = sb.ToString();
+            string sKey = SerialPortExtensions.BytesToString(key);
 
             if (cards.ContainsKey(sKey))
             {
                 var cardInfo = cards[sKey];
 
-                SerialDataCardInfoReceived?.Invoke(this, new SerialDataCardInfoReceivedEventArgs() { CardInfo = cardInfo });
+                SerialDataValidCardInfoReceived?.Invoke(this, new SerialDataCardInfoReceivedEventArgs() { CardInfo = cardInfo });
+            }
+            else
+            {
+                SerialDataInvalidCardInfoReceived?.Invoke(this, new SerialDataCardInfoReceivedEventArgs() { CardInfo = new CardInfo(RFIDTag.Unknown.ToString(), key) });
             }
 
             // Wait 2 seconds before unlocking card reader.

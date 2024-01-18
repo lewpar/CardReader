@@ -27,6 +27,9 @@ namespace CardReader
 
             var dataHandler = new SerialDataHandler(port);
 
+            dataHandler.RegisterRFIDTag(RFIDTag.Key, new byte[] { 0xA3, 0x47, 0x64, 0xB7 });
+            dataHandler.RegisterRFIDTag(RFIDTag.Card, new byte[] { 0xAC, 0x03, 0x0A, 0xE1 });
+
             dataHandler.OpenPort();
             Console.WriteLine($"Port opened on port '{port.PortName}'.");
 
@@ -34,19 +37,31 @@ namespace CardReader
             Console.WriteLine("Listening for NFC tag..");
 
             dataHandler.SerialDataOpCodeReceived += DataHandler_SerialDataOpCodeReceived;
-            dataHandler.SerialDataCardInfoReceived += DataHandler_SerialDataCardInfoReceived;
+
+            dataHandler.SerialDataValidCardInfoReceived += DataHandler_SerialDataValidCardInfoReceived;
+            dataHandler.SerialDataInvalidCardInfoReceived += DataHandler_SerialDataInvalidCardInfoReceived;
 
             await Task.Delay(-1);
         }
 
-        private static void DataHandler_SerialDataCardInfoReceived(object? sender, SerialDataCardInfoReceivedEventArgs e)
+        private static void DataHandler_SerialDataInvalidCardInfoReceived(object? sender, SerialDataCardInfoReceivedEventArgs e)
         {
             if(e.CardInfo is null)
             {
                 return;
             }
 
-            Console.WriteLine($"NFC Tag of type '{e.CardInfo.name}' and UID '{SerialPortExtensions.BytesToString(e.CardInfo.uid)}' scanned.");
+            Console.WriteLine($"[Invalid] NFC Tag of type '{e.CardInfo.name}' and UID '{SerialPortExtensions.BytesToString(e.CardInfo.uid)}' scanned.");
+        }
+
+        private static void DataHandler_SerialDataValidCardInfoReceived(object? sender, SerialDataCardInfoReceivedEventArgs e)
+        {
+            if(e.CardInfo is null)
+            {
+                return;
+            }
+
+            Console.WriteLine($"[Valid] NFC Tag of type '{e.CardInfo.name}' and UID '{SerialPortExtensions.BytesToString(e.CardInfo.uid)}' scanned.");
         }
 
         private static void DataHandler_SerialDataOpCodeReceived(object? sender, SerialDataOpCodeReceivedEventArgs e)
