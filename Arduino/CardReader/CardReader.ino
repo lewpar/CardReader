@@ -11,8 +11,8 @@ enum OpCodes : uint8_t
 };
 
 bool locked = false;
-unsigned long lockTimeMs = 0; // How many milliseconds have passed since the reader has been locked.
-unsigned long timeoutMs = 10000; // Number of milliseconds to unlock the reader to prevent indefinite lock.
+unsigned long lockTimeMs = 0; // The time in milliseconds when the reader was locked.
+unsigned long timeoutMs = 10000; // Number of milliseconds after lockTimeMs to unlock the reader to prevent indefinite lock.
 
 MFRC522 mfrc522(SS_PIN, RST_PIN);
 
